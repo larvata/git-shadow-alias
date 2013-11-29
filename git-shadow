@@ -1,0 +1,316 @@
+#!/bin/bash
+
+# hookGitd() {
+#         # echo -e "\e[41m.gitignore changed to deploy mode\e[0m";
+#         cp .gitignore-deploy .gitignore;
+#         git --git-dir=.git-deploy --work-tree=. $1;
+#         cp .gitignore-development .gitignore;
+# }
+
+# checkGitIgnoreFile() {
+#         if [[ ! -f .gitignore-development ]]; then
+#                 echo ".gitignore-development not found create new"
+#                 >.gitignore-development
+#         fi
+#         if [[ ! -f .gitignore-deploy ]]; then
+#                 echo ".gitignore-deploy not found create new"
+#                 >.gitignore-deploy
+#         fi
+# }
+
+GITUNDERCONTROL=$(git rev-parse --is-inside-work-tree)
+# GITWORKTREE=$(git rev-parse --show-toplevel)
+LINUXWORKTREE=$(echo /$GITWORKTREE|sed 's/://g')
+
+GITKEEP='.gitkeep'
+GITSHADOWCONFIG='alias'
+CONFIGFILE="$LINUXWORKTREE/$GITKEEP/$GITSHADOWCONFIG"
+
+SHADOWREPOLIST=""
+SHADOWCONFIGLIST=""
+# NEWREPOLIST=""
+# CURRENTREPOLIST=""
+
+getShadowEnvironment() {
+
+    # fetch all .git-* repo in current [.git repo] folder
+    SHADOWREPOLIST=`find "$LINUXWORKTREE" -type d -maxdepth 1 -name ".git-*" | sed 's/.git-//g' | xargs -i basename {}`
+    # fetch all git shadow repo alias in [.git repo] work-tree/$GITKEEP/$GITSHADOWCONFIG
+    # default [.git repo] work-tree/.gitkeep/shadow.config
+    # if [[ -f $CONFIGFILE ]]; then
+    #     SHADOWCONFIGLIST=$(echo `cat "$CONFIGFILE"`|xargs -l1)
+
+    #     echo $(echo `cat "$CONFIGFILE"`)
+    #     echo ----------------
+    #     echo $(echo `cat "$CONFIGFILE"`|xargs -l1)
+    # fi
+
+    # fill exist .git-* repos into [NEWREPOLIST] and [CURRENTREPOLIST]
+    if [[ -f $CONFIGFILE ]]; then
+        SHADOWCONFIGLIST=$(<"$CONFIGFILE")
+    fi
+
+
+    # echo =============
+
+    # for repo in $SHADOWREPOLIST; do
+    #     isFound=false
+
+
+    #     cat "$CONFIGFILE" | xargs -l1 |
+    #     while read -r conf; do
+    #         if [[ $conf == *--git-dir=.git-$repo* ]]; then
+    #             isFound=true
+    #             echo equal
+    #         else
+    #             echo notequal
+    #         fi
+    #     done
+
+    #     # if  $isFound ; then
+    #     #     CURRENTREPOLIST=$(echo "$CURRENTREPOLIST $repo")
+    #     # else
+    #     #     NEWREPOLIST=$(echo "$NEWREPOLIST $repo")
+    #     # fi
+    # done
+
+    # echo SHADOWREPOLIST=$SHADOWREPOLIST
+    # echo SHADOWCONFIGLIST=$SHADOWCONFIGLIST
+    # echo NEWREPOLIST=$NEWREPOLIST
+    # echo CURRENTREPOLIST=$CURRENTREPOLIST
+
+}
+
+# setNewRepoAlias() {
+
+#     # no config file check is has shadow repo
+#     # if true create it with alias
+#     if [[ ! -z $NEWREPOLIST ]]; then
+#         echo -e "Shadow repo found creating git shadow command alias"
+#         for repo in $NEWREPOLIST; do
+#             echo -e "REPO: .git-$repo \nPlease assign a command alias:"
+#             read aliasName
+#             if [[ ! -z aliasName ]]; then
+#                 config="$repo=$aliasName"
+#                 # aliasCommand="$aliasName=git --git-dir=.git-$repo --work-tree=. \$1"
+#             else
+#                 config="$repo=$repo"
+#                 # aliasCommand="$repo=git --git-dir=.git-$repo --work-tree=. \$1"
+#             fi
+#             echo -e "$config"
+#             echo -e "alias saved."
+#             echo "$config" >> "$CONFIGFILE"
+#         done
+#     else
+#         echo -e "no new shadow repo found. create it by [git shadow create]"
+#         echo -e "or check alias by [git shadow list]"
+#     fi
+
+# }
+
+# fin
+getRepoAlias() {
+
+    echo Shadow repo alias:
+    for repo in $SHADOWREPOLIST; do
+        # isFound=false
+
+        cat "$CONFIGFILE" | xargs -l1 |
+        while read -r conf; do
+            if [[ $conf == *--git-dir=.git-$repo* ]]; then
+                echo $conf
+            fi
+        done
+    done
+
+}
+
+# fin
+gitShadowList() {
+
+    if [[ GITUNDERCONTROL ]]; then
+        getShadowEnvironment
+        getRepoAlias
+    else
+        echo -e "This folder is not under git control."
+    fi
+
+}
+
+# gitShadowSetAlias() {
+
+#     if [[ GITUNDERCONTROL ]]; then
+#         getShadowEnvironment
+#         setNewRepoAlias
+#     else
+#         echo -e "This folder is not under git control."
+#     fi
+
+# }
+
+# fin
+gitShadowCreate() {
+
+    if [[ GITUNDERCONTROL ]]; then
+        getShadowEnvironment
+        createNewShadowAlias $1 $2
+    else
+        echo -e "This folder is not under git control."
+    fi
+
+}
+
+# fin
+createNewShadowAlias() {
+    isFound=false
+    checkWorkDirExist $1 $isFound
+    checkAliasExist $2 $isFound
+
+    if $isFound ; then
+        exit
+    fi
+
+    echo "alias $2=git --git-dir=.git-$1 --work-tree=. \$1" >> "$CONFIGFILE"
+}
+
+# fin
+checkWorkDirExist(){
+    # $1 repo
+
+    if $2 ; then
+        exit
+    fi
+
+    isFound=false
+    for repo in $SHADOWREPOLIST; do
+        if [[ $repo = "$1" ]]; then
+            isFound=true
+        fi
+    done
+
+    if $isFound ; then
+        echo -e "git work-dir:\n.git-$1\nexisted"
+    fi
+
+}
+
+# fin
+checkAliasExist(){
+    # $1 alias
+
+    if $2 ; then
+        exit
+    fi
+
+    isFound=false
+
+    for conf in $SHADOWCONFIGLIST; do
+        if [[ $conf == *$1=git* ]]; then
+            isFound=true
+        fi
+    done
+
+    if $isFound ; then
+        echo -e "git shadow alias:\n$1\nexisted"
+    fi
+
+}
+
+# createNewShadowRepo() {
+
+#     echo "createNewShadowRepo para:$1" 
+
+#     for repo in $CURRENTREPOLIST; do
+#         isFound=false
+#         if [[ $repo=$1 ]]; then
+#             isFound=true
+#         fi
+#     done
+
+#     if isFound ; then
+#         echo "repo is exist." # and alias is = ...
+#     fi
+
+#     for repo in $NEWREPOLIST; do
+#         ifFound=false
+#         if [[ $repo=$1 ]]; then
+#             isFound=true
+#         fi
+#     done
+
+#     if isFound ; then
+#         echo "repo is exist. please set a alias ..."
+#     fi
+
+
+#     if ! isFound ; then
+#         echo none
+#         # create new repo and set alias
+#     fi
+# }
+
+# _createRepo() {
+#     # $1: repo name
+#     # $2: git work tree
+#     if [[ -z "$1" ]]; then
+#         git --git-dir=.git-$1 --work-tree=$2 
+#     fi
+
+# }
+
+# _setAlias() {
+#     # $1: repo name
+
+# }
+
+# _getAlias() {
+#     # $1: repo name
+
+# }
+
+
+if [[ -z "$1" ]]; then
+    if [[ ${BASH_SOURCE[0]} = $0 ]]; then
+        #statements
+        echo -e "please init by \e[7msource $0\e[27m first \nand then use it as\n\e[7mgitd <git-command>\e[27m to manage git repo .git-deploy"
+    else
+        # checkGitIgnoreFile
+        alias gitd=$BASH_ARGV
+        echo -e "now you can use \e[7mgitd <git-command>\e[27m to manage git repo .git-deploy"
+    fi
+else
+    case $1 in
+        list )
+            gitShadowList
+            ;;
+        create* )
+            echo "git shadow create para:$2" 
+            gitShadowCreate $2 $3
+            ;;
+        load )
+            echo "this is load"
+            echo $(pwd)/.gitkeep/alias
+            source "$(pwd)/.gitkeep/alias"
+            ;;
+        # unload )
+        #     echo "this is unload"
+        #     ;;
+        # install )
+        #     echo "this is install"
+        #     ;;
+        # uninstall )
+        #     echo "this is uninstall"
+        #     ;;
+        # set* )
+        #     case $2 in
+        #         alias )
+        #             gitShadowSetAlias
+        #             ;;
+        #     esac
+        #     ;;
+    esac
+
+fi
+
+
+
