@@ -70,6 +70,8 @@ gitShadowInstall() {
         Linux )
             ;;
         MINGW32_NT-* )
+            platform="Windows"
+            path="/usr/bin/"
             ;;
     esac
     
@@ -156,10 +158,11 @@ checkAliasExist(){
 
 echo -e "Git Shadow Alias 0.1"
 if [[ -z "$1" ]]; then
-    if [[ `dirname $BASH_SOURCE` = "." ]]; then
+    echo BASH_SOURCE=$BASH_SOURCE
+    if [[ "$BASH_SOURCE" = *\.* ]]; then
         #statements
         echo -e "Please install this script first."
-        echo -e bash `basename $0` install
+        echo -e bash `basename "$0"` install
     else    
         printUsage
     fi
