@@ -86,41 +86,42 @@ gitShadowInstall() {
 
 gitShadowInvoke() {
 
-    # $2 git-dir
-    # $3 work-tree
-    # $4 git command #1
-    # $5 git command #2
-    # $6 git command #3
-    # $7 git command #4
+    # $1 invoke
+    # $2 shadow-repo
+    # $3 git-dir
+    # $4 work-tree
+    # $5 git command #1
+    # $6 git command #2
+    # $7 git command #3
+    # $8 git command #4
 
-
-    if [[ -f '$3/$GITKEEP/$1.gitignore' ]]; then 
-        mv '$3/.gitignore' '$3/git.gitignore';
-        cp '$3/$GITKEEP/$1.gitignore' '$3/.gitignore'; 
+    if [[ -f $4/$GITKEEP/$2.gitignore ]]; then 
+        mv $4/.gitignore $4/git.gitignore;
+        cp $4/$GITKEEP/$2.gitignore $4/.gitignore; 
     fi;
 
-    if [[ ! -z $4 ]]; then
-        git --git-dir=$2 --work-tree=$3 $4 $5 $6 $7
-    elif [[ ! -z $3 ]]; then
-        git --git-dir=$2 --work-tree=$3 $4 $5 $6
-    elif [[ ! -z $2 ]]; then
-        git --git-dir=$2 --work-tree=$3 $4 $5
-    elif [[ ! -z $1 ]]; then
-        git --git-dir=$2 --work-tree=$3 $4
-    elif [[ -z $1 ]]; then
-        echo please use git command
-    fi
+    git --git-dir=$3 --work-tree=. ${@:5}
 
-    if [[ -f '$3/$GITKEEP/$1.gitignore' ]]; then 
-        mv '$3/git.gitignore' '$3/.gitignore';
+    if [[ -f $4/$GITKEEP/$2.gitignore ]]; then 
+        mv $4/git.gitignore $4/.gitignore;
     fi;
+
 }
 
 printUsage() {
-    echo -e "usage:"
+    echo -e "[usage]"
     echo -e "[create shadow alias] git shadow create <git-repo> <repo-command-alias>"
     echo -e "[load alias]. .gitkeep/alias"
     echo -e "[init <git-repo>]<repo-command-alias> init"
+}
+
+printIvokeUsage() {
+
+    echo -e "argument illegal"
+    echo -e "[usage]"
+    echo `basename "$0"` invoke \<git-dir\> \<work-tree\> \<git-commands\>
+    echo -e "or create alias command after you installed this script"
+
 }
 
 # fin
@@ -141,7 +142,7 @@ createNewShadowAlias() {
         touch $CONFIGFILE
     fi
 
-    echo "alias $2=git --git-dir=.git-$1 --work-tree=. \$1;" >> "$CONFIGFILE"
+    echo "alias $2='git shadow invoke $1 $LINUXWORKTREE/.git-$1 $LINUXWORKTREE \$@'" >> "$CONFIGFILE"
 
 }
 
@@ -160,7 +161,7 @@ checkWorkDirExist(){
     done
 
     if $isFound ; then
-        echo -e "git work-dir:\n.git-$1\existed"
+        echo -e "git-dir:\n.git-$1\existed"
     fi
 
 }
@@ -213,15 +214,21 @@ else
             gitShadowInstall
             ;;
         invoke* )
-            # $2 git-dir
-            # $3 work-tree
-            # $4 git command #1
-            # $5 git command #2
-            # $6 git command #3
-            # $7 git command #4
-            echo invoke called 
-            echo 
-            gitShadowInvoke $2 $3 $4 $5 $6 $7
+
+            # $2 shadow-repo
+            # $3 git-dir
+            # $4 work-tree
+            # $5 git command #1
+            # $6 git command #2
+            # $7 git command #3
+            # $8 git command #4
+
+            if [[ $# < 4 ]]; then
+                printIvokeUsage
+            else
+                gitShadowInvoke $@
+            fi
+            
     esac
 
 fi
