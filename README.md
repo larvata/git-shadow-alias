@@ -52,6 +52,9 @@ Git shadow alias use .gitkeep for mantains command-alias and .gitignore.
 Save your .gitignore to .gitkeep and named < git-repo >.gitignore. 
 This script will copy currect .gitignore to your current git work-dir.
 
+## Known Issues
+- work path can't include [space]
+- `git commit -m "commit content"` error, use `< command-alias >` commit instead
 
 
 
