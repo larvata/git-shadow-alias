@@ -5,7 +5,7 @@ GITWORKTREE=$(git rev-parse --show-toplevel)
 LINUXWORKTREE=$(echo /$GITWORKTREE|sed 's/://g'|sed 's/\/\//\//g')
 
 GITKEEP='.gitkeep'
-GITSHADOWCONFIG='alias'
+GITSHADOWCONFIG='config'
 CONFIGFILE="$LINUXWORKTREE/$GITKEEP/$GITSHADOWCONFIG"
 
 SHADOWREPOLIST=""
@@ -13,53 +13,29 @@ SHADOWCONFIGLIST=""
 
 getShadowEnvironment() {
 
-    SHADOWREPOLIST=`find "$LINUXWORKTREE" -type d -maxdepth 1 -name ".git-*" | sed 's/.git-//g' | xargs basename {}`
+    # SHADOWREPOLIST=`find "$LINUXWORKTREE" -type d -maxdepth 1 -name ".git-*" | sed 's/.git-//g' | xargs basename {}`
+    # if [[ -f $CONFIGFILE ]]; then
+    #     SHADOWCONFIGLIST=$(<"$CONFIGFILE")
+    # fi
+
+    echo "debug: load environment"
+
     if [[ -f $CONFIGFILE ]]; then
-        SHADOWCONFIGLIST=$(<"$CONFIGFILE")
+        #statements
+        SHADOWREPOLIST=$(<"$CONFIGFILE")
     fi
-
 }
 
-# fin
-getRepoAlias() {
-
-    echo -e "Shadow repo alias:"
-    for repo in $SHADOWREPOLIST; do
-        cat "$CONFIGFILE" | xargs -l1 |
-        while read -r conf; do
-            if [[ $conf == *--git-dir=.git-$repo* ]]; then
-                echo $conf
-            fi
-        done
-    done
-
-}
-
-# fin
-gitShadowList() {
-
-    if [[ GITUNDERCONTROL ]]; then
-        getShadowEnvironment
-        getRepoAlias
-    else
-        echo -e "This folder is not under git control."
-    fi
+# call from gitShadowCreate
+# save current shadow repo to $currentRepo
+getCurrentRepo(){
 
 }
 
 
-# fin
-gitShadowCreate() {
-
-    if [[ GITUNDERCONTROL ]]; then
-        getShadowEnvironment
-        createNewShadowAlias $1 $2
-    else
-        echo -e "This folder is not under git control."
-    fi
-
-}
-
+#######################################
+# main entry
+#######################################
 gitShadowInstall() {
 
     case `uname` in
@@ -75,154 +51,97 @@ gitShadowInstall() {
             ;;
     esac
     
-    if [[ ! -z "$path" ]]; then
-        cp `basename $0` $path
-        chmod +x $path/git-shadow
-        echo -e "git shadow alias installed."
-        printUsage
-    fi
+    # if [[ ! -z "$path" ]]; then
+    #     cp `basename $0` $path
+    #     chmod +x $path/git-shadow
+    #     echo -e "git shadow alias installed."
+    #     printUsage
+    # fi
 
+    echo "debug: ========="
+    # echo  $(dirname $0)/$(basename $0)
+    # [[ -s $(dirname $0)/git-shadow ]] && . $(dirname $0)/git-shadow 
+    ln $(dirname $0)/$(basename $0) $path/git-shadow 
+    echo "git shadow installed."
 }
 
-gitShadowInvoke() {
+gitShadowUninstall() {
 
-    # $1 invoke
-    # $2 shadow-repo
-    # $3 git-dir
-    # $4 work-tree
-    # $5 git command #1
-    # $6 git command #2
-    # $7 git command #3
-    # $8 git command #4
+    case `uname` in
+        Darwin )
+            platform="MacOSX"
+            path="/usr/local/bin/"
+            ;;
+        Linux )
+            ;;
+        MINGW32_NT-* )
+            platform="Windows"
+            path="/usr/bin/"
+            ;;
+    esac
 
-    if [[ -f $4/$GITKEEP/$2.gitignore ]]; then 
-        mv $4/.gitignore $4/git.gitignore;
-        cp $4/$GITKEEP/$2.gitignore $4/.gitignore; 
-    fi;
-
-    git --git-dir=$3 --work-tree=. ${@:5}
-
-    if [[ -f $4/$GITKEEP/$2.gitignore ]]; then 
-        mv $4/git.gitignore $4/.gitignore;
-    fi;
-
+    rm $path/git-shadow
+    echo "git shadow uninstalled from you system"
 }
 
-printUsage() {
-    echo -e "[usage]"
-    echo -e "[create shadow alias] git shadow create <git-repo> <repo-command-alias>"
-    echo -e "[load alias]. .gitkeep/alias"
-    echo -e "[init <git-repo>]<repo-command-alias> init"
-}
+gitShadowCreate() {
 
-printIvokeUsage() {
-
-    echo -e "argument illegal"
-    echo -e "[usage]"
-    echo `basename "$0"` invoke \<git-dir\> \<work-tree\> \<git-commands\>
-    echo -e "or create alias command after you installed this script"
-
-}
-
-# fin
-createNewShadowAlias() {
-    isFound=false
-    checkWorkDirExist $1 $isFound
-    checkAliasExist $2 $isFound
-
-    if $isFound ; then
-        exit
-    fi
-
-    if [[ ! -d $GITKEEP ]] ; then
-        mkdir $GITKEEP
-    fi
-
-    if [[ ! -f $CONFIGFILE ]] ; then
-        touch $CONFIGFILE
-    fi
-
-    echo "alias $2='git shadow invoke $1 $LINUXWORKTREE/.git-$1 $LINUXWORKTREE \$@'" >> "$CONFIGFILE"
-
-}
-
-# fin
-checkWorkDirExist(){
-    # $1 repo
-    if $2 ; then
-        exit
-    fi
-
-    isFound=false
-    for repo in $SHADOWREPOLIST; do
-        if [[ $repo = "$1" ]]; then
-            isFound=true
-        fi
-    done
-
-    if $isFound ; then
-        echo -e "git-dir:\n.git-$1\existed"
-    fi
-
-}
-
-# fin
-checkAliasExist(){
-    # $1 alias
-
-    if $2 ; then
-        exit
-    fi
-
-    isFound=false
-
-    for conf in $SHADOWCONFIGLIST; do
-        if [[ $conf == *$1=git* ]]; then
-            isFound=true
-        fi
-    done
-
-    if $isFound ; then
-        echo -e "git shadow alias:\n$1\existed"
+    if [[ GITUNDERCONTROL ]]; then
+        getShadowEnvironment
+        
+        for repo in $SHADOWREPOLIST; do
+            echo $1 " : " $repo
+            if [[ $1 == $repo ]]; then
+                #statements
+            fi
+        done
+        # createNewShadowAlias $1 $2
+    else
+        echo -e "This folder is not under git control."
     fi
 
 }
 
 
-echo -e "Git Shadow Alias 0.1"
+
+
+#######################################
+#  bootstrapper
+#######################################
+echo -e "Git Shadow Repos 0.1"
+# echo -e $(dirname $0) ** find script path
 if [[ -z "$1" ]]; then
     echo BASH_SOURCE=$BASH_SOURCE
     if [[ "$BASH_SOURCE" = *\.* ]]; then
         #statements
         echo -e "Please install this script first."
-        echo -e bash `basename "$0"` install
+        echo -e `basename "$0"` install
     else    
         printUsage
     fi
 else
     case $1 in
-        list )
-            gitShadowList
-            ;;
-        create* )
-            gitShadowCreate $2 $3
-            ;;
-        rebuild )
-            gitShadowRebuild
-            ;;
         install )
             gitShadowInstall
             ;;
+        uninstall )
+            gitShadowUninstall
+            ;;
+        create* )
+            gitShadowCreate $2
+            ;;
+        list )
+            gitShadowList
+            ;;
+        load )
+            gitShadowLoad
+            ;;
+        # this command shouldn't called by user
         invoke* )
-
             # $2 shadow-repo
             # $3 git-dir
             # $4 work-tree
             # $5 git command #1
-            # $6 git command #2
-            # $7 git command #3
-            # $8 git command #4
-
             if [[ $# < 4 ]]; then
                 printIvokeUsage
             else
