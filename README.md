@@ -1,60 +1,44 @@
-git-shadow-alias
+git-shadow-repos
 =====================
 
-This bash script builds a alias script to helps you maintain multi-repo in same folder.
-Change target repo without commands set git work-dir.
-Only use your command-alias replace git command to manage repos.
-Each repo use .gitignore themself.
+This bash script can manage multiple git repos in same git dir.
+I use this script mantain .net website. One repo for source control, and one for deploy(only contains complined files and resource file).
 
 ## Quick Guide
 
 #### install
 
-`bash git-shadow install`
+`./git-shadow install`
 
 #### create alias bash script
 
-`git shadow create <git-repo> <command-alias>`
+`git shadow create <git-repo>`
 
-#### load alias
-
-`. .gitkeep/alias`
-
-#### manage < git-repo > with < command-alias >
+#### manage repo with git-shadow
 
 ```
-<command-alias> init
-<command-alias> add *
-<command-alias> status
+git shadow init
+git shadow add *
+git shadow status
+...
 ```
 
-## Command List
+## Usage
+```
+Install: ./git-shadow install
+  Usage: git shadow [shadow command]
+     or: git shadow [git command]
 
-**git shadow install**
-:   install this script to your ~/bin
-
-**git shadow uninstall**
-:   delete this script from your system
-
-**git shadow create < git-repo > < command-alias >**
-:   create alias
-
-**git shadow rebuild**
-:   reset command-alias for your current repos.
-    you should run this command when move the project directory
-
-**git shadow list**
-:   list all command-alias exist
-
-## .gitkeep
-
-Git shadow alias use .gitkeep for mantains command-alias and .gitignore. 
-Save your .gitignore to .gitkeep and named < git-repo >.gitignore. 
-This script will copy currect .gitignore to your current git work-dir.
+Git shadow commands:
+install         install this script
+uninstall       remove this script from system
+create [repo]   create shadow repo and set as default
+current [repo]  set default repo
+current         list all shadow repos
+```
 
 ## Known Issues
-- work path can't include [space]
-- `git commit -m "commit content"` error, use `< command-alias >` commit instead
+- [Windows Only] you should reinstall `./git-shadow install` to update this script manually while you get new version.
 
 
 
