@@ -88,13 +88,13 @@ gitShadowInstall() {
 
     # tip: mingw32 ln.exe cannot create symbolic link only copy it to dest
     ln -f $(dirname $0)/$(basename $0) $BINPATH/git-shadow
-    echo "git shadow installed/updated."
+    echo "installed/updated."
 }
 
 gitShadowUninstall() {
 
     rm $BINPATH/git-shadow
-    echo "git shadow removed from your system."
+    echo "removed."
 }
 
 gitShadowCreate() {
@@ -163,7 +163,7 @@ gitShadowDebug() {
 #######################################
 #  bootstrapper
 #######################################
-echo -e "Git Shadow Repos 0.34"
+echo -e "git-shadow-repos 0.34"
 # echo -e $(dirname $0) ** find script path
 if [[ -z "$1" ]]; then
     if [[ "$BASH_SOURCE" = *\.* ]]; then
@@ -193,13 +193,13 @@ else
             ;;
         *)
 
-            echo $LINUXWORKTREE/$GITKEEP/$CURRENTREPO.gitignore
+            # echo $LINUXWORKTREE/$GITKEEP/$CURRENTREPO.gitignore
             if [[ -f $LINUXWORKTREE/$GITKEEP/$CURRENTREPO.gitignore ]]; then
                 mv $LINUXWORKTREE/.gitignore $LINUXWORKTREE/$GITKEEP/git.gitignore;
                 cp $LINUXWORKTREE/$GITKEEP/$CURRENTREPO.gitignore $LINUXWORKTREE/.gitignore;
             fi;
 
-            cat $LINUXWORKTREE/.gitignore
+            # cat $LINUXWORKTREE/.gitignore
             git --work-tree=$LINUXWORKTREE --git-dir=$LINUXWORKTREE/.git-$CURRENTREPO $@
 
             if [[ -f $LINUXWORKTREE/$GITKEEP/$CURRENTREPO.gitignore ]]; then
