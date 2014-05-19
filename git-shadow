@@ -73,11 +73,12 @@ printUsage() {
     echo -e "     or: git shadow [git command]"
     echo -e ""
     echo -e "Git shadow commands:"
-    echo -e "install         install this script"
-    echo -e "uninstall       remove this script from system"
-    echo -e "create [repo]   create shadow repo and set as default"
-    echo -e "current [repo]  set default repo"
-    echo -e "current         list all shadow repos"
+    echo -e "install                 install this script"
+    echo -e "uninstall               remove this script from system"
+    echo -e "clone [repo] [url]   "
+    echo -e "create [repo]           create shadow repo and set as default"
+    echo -e "current [repo]          set default repo"
+    echo -e "current                 list all shadow repos"
 }
 
 
@@ -85,45 +86,53 @@ printUsage() {
 # main entry
 #######################################
 gitShadowInstall() {
-
     # tip: mingw32 ln.exe cannot create symbolic link only copy it to dest
     ln -f $(dirname $0)/$(basename $0) $BINPATH/git-shadow
     echo "installed/updated."
 }
 
 gitShadowUninstall() {
-
     rm $BINPATH/git-shadow
     echo "removed."
 }
 
+gitShadowClone() {
+    gitShadowCreate $1
+    git --work-tree="$LINUXWORKTREE/tmp/" clone $2 "$LINUXWORKTREE/tmp/.git-$CURRENTREPO"
+    echo merge files to main repo.
+    cp -rf ./tmp/* .
+    echo copy .git-$CURRENTREPO to main repo-dir.
+    mv tmp/.git-$CURRENTREPO .
+    rm -rf ./tmp/
+    git --work-tree="$LINUXWORKTREE/$GITKEEP" --git-dir="$LINUXWORKTREE/.git-$CURRENTREPO" checkout master -- .gitignore
+    mv "$LINUXWORKTREE/$GITKEEP/.gitignore" "$LINUXWORKTREE/$GITKEEP/$CURRENTREPO.gitignore"
+}
+
 gitShadowCreate() {
-
     if [[ GITUNDERCONTROL ]]; then
-
         getShadowRepoExists $1
+        CURRENTREPO=$(echo $1)
         # createNewShadowAlias $1 $2
         if [[ $isFound == false ]]; then
             if [[ ! -d $LINUXWORKTREE/$GITKEEP ]]; then
-                mkdir $LINUXWORKTREE/$GITKEEP
+                DIRPATH=$(echo $LINUXWORKTREE/$GITKEEP)
+                mkdir "$DIRPATH"
             fi
 
             if [[ ! -f $LINUXWORKTREE/$GITKEEP/$1.gitignore ]]; then
-                echo ".git-*" > $LINUXWORKTREE/$GITKEEP/$1.gitignore
-                echo ".gitkeep" >> $LINUXWORKTREE/$GITKEEP/$1.gitignore
+                echo ".git-*" > "$LINUXWORKTREE/$GITKEEP/$1.gitignore"
+                echo ".gitkeep" >> "$LINUXWORKTREE/$GITKEEP/$1.gitignore"
             fi
 
-            echo $1 $SHADOWREPOLIST > $CONFIGFILE
+            echo $1 $SHADOWREPOLIST > "$CONFIGFILE"
             echo $1 created and set as default repo.
         fi
     else
         echo -e "This folder is not under git control."
     fi
-
 }
 
 gitShadowCurrent() {
-
     if [[ -z $1 ]]; then
         # echo shadow repo list:
         firstTag="\e[32m*(current)\e[0m"
@@ -132,7 +141,6 @@ gitShadowCurrent() {
             firstTag=""
         done
     else
-
         getShadowRepoExists $1
         if [[ $isFound == true ]]; then
             echo $1 > $CONFIGFILE
@@ -148,8 +156,6 @@ gitShadowCurrent() {
         else
             echo git-shadow: shadow repo not found, have you create before?
         fi
-
-
     fi
 }
 
@@ -163,7 +169,7 @@ gitShadowDebug() {
 #######################################
 #  bootstrapper
 #######################################
-echo -e "git-shadow-repos 0.34"
+echo -e "git-shadow-repos 0.35"
 # echo -e $(dirname $0) ** find script path
 if [[ -z "$1" ]]; then
     if [[ "$BASH_SOURCE" = *\.* ]]; then
@@ -188,22 +194,30 @@ else
         create* )
             gitShadowCreate $2
             ;;
+        clone* )
+            gitShadowClone $2 $3
+            ;;
         current* )
             gitShadowCurrent $2
             ;;
         *)
 
             # echo $LINUXWORKTREE/$GITKEEP/$CURRENTREPO.gitignore
-            if [[ -f $LINUXWORKTREE/$GITKEEP/$CURRENTREPO.gitignore ]]; then
-                mv $LINUXWORKTREE/.gitignore $LINUXWORKTREE/$GITKEEP/git.gitignore;
-                cp $LINUXWORKTREE/$GITKEEP/$CURRENTREPO.gitignore $LINUXWORKTREE/.gitignore;
+            # if origin repo/.gitignore not existed create it
+            if [[ ! -f "$LINUXWORKTREE/.gitignore" ]]; then
+                echo "" > "$LINUXWORKTREE/.gitignore"
+            fi
+
+            if [[ -f "$LINUXWORKTREE/$GITKEEP/$CURRENTREPO.gitignore" ]]; then
+                mv "$LINUXWORKTREE/.gitignore" "$LINUXWORKTREE/$GITKEEP/git.gitignore"
+                cp "$LINUXWORKTREE/$GITKEEP/$CURRENTREPO.gitignore" "$LINUXWORKTREE/.gitignore"
             fi;
 
-            # cat $LINUXWORKTREE/.gitignore
-            git --work-tree=$LINUXWORKTREE --git-dir=$LINUXWORKTREE/.git-$CURRENTREPO $@
 
-            if [[ -f $LINUXWORKTREE/$GITKEEP/$CURRENTREPO.gitignore ]]; then
-                mv $LINUXWORKTREE/$GITKEEP/git.gitignore $LINUXWORKTREE/.gitignore;
+            git --work-tree="$LINUXWORKTREE" --git-dir="$LINUXWORKTREE/.git-$CURRENTREPO" $@
+
+            if [[ -f "$LINUXWORKTREE/$GITKEEP/$CURRENTREPO.gitignore" ]]; then
+                mv "$LINUXWORKTREE/$GITKEEP/git.gitignore" "$LINUXWORKTREE/.gitignore"
             fi;
             ;;
     esac
