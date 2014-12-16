@@ -1,13 +1,40 @@
 #!/bin/bash
 # set -x
 
-GITUNDERCONTROL=$(git rev-parse --is-inside-work-tree)
-GITWORKTREE=$(git rev-parse --show-toplevel)
-LINUXWORKTREE=$(echo /$GITWORKTREE|sed 's/://g'|sed 's/\/\//\//g')
+upsearch () {
+  slashes=${PWD//[^\/]/}
+  directory="$PWD"
+  for (( n=${#slashes}; n>0; --n ))
+  do
+    test -e "$directory/$1" && echo "$directory/$1" && return
+    directory=$(dirname "$directory")
+  done
+}
+
+GITUNDERCONTROL=$(git rev-parse --is-inside-work-tree 2> /dev/null)
+GITTOPLEVELWORKTREE=$(git rev-parse --show-toplevel 2> /dev/null)
 
 GITKEEP='.gitkeep'
 GITSHADOWCONFIG='config'
-CONFIGFILE="$LINUXWORKTREE/$GITKEEP/$GITSHADOWCONFIG"
+GITSHADOWUNDERCONTROL=true
+GITUSETOPLEVEL=false
+
+LINUXTOPLEVELWORKTREE=$(echo /$GITTOPLEVELWORKTREE|sed 's/://g'|sed 's/\/\//\//g')
+GITKEEPWORKTREETOPLEVEL="$LINUXTOPLEVELWORKTREE/$GITKEEP"
+
+GITKEEPWORKTREE=$(upsearch "$GITKEEP")
+LINUXWORKTREE=$(dirname "$GITKEEPWORKTREE")
+
+if [[ -z $GITKEEPWORKTREE ]]; then
+    GITKEEPWORKTREE="$(pwd)/$GITKEEP"
+    GITSHADOWUNDERCONTROL=false
+fi
+
+
+CONFIGFILETOPLEVEL="$LINUXTOPLEVELWORKTREE/$GITSHADOWCONFIG"
+CONFIGFILE="$GITKEEPWORKTREE/$GITSHADOWCONFIG"
+
+
 
 loadShadowEnvironment() {
 
@@ -54,12 +81,14 @@ getCurrentRepo(){
     done
 }
 
-isFound=false
-getShadowRepoExists(){
-
+setCurrentRepo() {
+    # set current repo
+    # set <empty string> if not exist
+    # $1: repo
+    CURRENTREPO=""
     for repo in $SHADOWREPOLIST; do
         if [[ $1 == $repo ]]; then
-            isFound=true
+            CURRENTREPO=$1
             break
         fi
     done
@@ -75,18 +104,51 @@ printUsage() {
     echo -e "Git shadow commands:"
     echo -e "install                 install this script"
     echo -e "uninstall               remove this script from system"
-    echo -e "clone [repo] [url]   "
-    echo -e "create [repo]           create shadow repo and set as default"
-    echo -e "current [repo]          set default repo"
+    echo -e "clone [repo] [url]"
     echo -e "current                 list all shadow repos"
+    echo -e "current [repo]          set default repo"
+
 }
 
+
+
+# private
+gitShadowCreate() {
+
+    # find if repo user inputed exists
+    # if not create
+    # else do nothing
+
+    # $1 repo
+    # $2 git keep path
+
+    # if .gitkeep not exit create it
+    if [[ ! -d $2 ]]; then
+        mkdir $2
+    fi
+
+    setCurrentRepo $1
+
+    if [[ -z $CURRENTREPO ]]; then
+
+        if [[ ! -f $2/$1.gitignore ]]; then
+            echo ".git-*" > "$2/$1.gitignore"
+            echo ".gitkeep" >> "$2/$1.gitignore"
+        fi
+
+        echo $1 $SHADOWREPOLIST > "$CONFIGFILE"
+        CURRENTREPO=$1
+        echo $1 created and set as default repo.
+    fi
+
+}
 
 #######################################
 # main entry
 #######################################
 gitShadowInstall() {
     # tip: mingw32 ln.exe cannot create symbolic link only copy it to dest
+    # so you should run `./git-shadow install` after update
     ln -f $(dirname $0)/$(basename $0) $BINPATH/git-shadow
     echo "installed/updated."
 }
@@ -108,41 +170,73 @@ gitShadowClone() {
     mv "$LINUXWORKTREE/$GITKEEP/.gitignore" "$LINUXWORKTREE/$GITKEEP/$CURRENTREPO.gitignore"
 }
 
-gitShadowCreate() {
-    if [[ GITUNDERCONTROL ]]; then
-        getShadowRepoExists $1
-        CURRENTREPO=$(echo $1)
-        # createNewShadowAlias $1 $2
-        if [[ $isFound == false ]]; then
-            if [[ ! -d $LINUXWORKTREE/$GITKEEP ]]; then
-                DIRPATH=$(echo $LINUXWORKTREE/$GITKEEP)
-                mkdir "$DIRPATH"
-            fi
 
-            if [[ ! -f $LINUXWORKTREE/$GITKEEP/$1.gitignore ]]; then
-                echo ".git-*" > "$LINUXWORKTREE/$GITKEEP/$1.gitignore"
-                echo ".gitkeep" >> "$LINUXWORKTREE/$GITKEEP/$1.gitignore"
-            fi
 
-            echo $1 $SHADOWREPOLIST > "$CONFIGFILE"
-            echo $1 created and set as default repo.
-        fi
-    else
-        echo -e "This folder is not under git control."
+
+
+gitInvoke() {
+
+    if [[ -z $CURRENTREPO ]]; then
+        echo "Can not found current repo."
+        echo "Type 'git shadow init' to init git shadow."
+        exit
     fi
+
+    # echo $LINUXWORKTREE/$GITKEEP/$CURRENTREPO.gitignore
+    # create empty .gitignore if origin repo/.gitignore not exists
+    if [[ ! -f "$LINUXWORKTREE/.gitignore" ]]; then
+        echo "" > "$LINUXWORKTREE/.gitignore"
+    fi
+
+    if [[ $GITUSETOPLEVEL == true ]]; then
+        if [[ -f "$LINUXTOPLEVELWORKTREE/$GITKEEP/$CURRENTREPO.gitignore" ]]; then
+            mv "$LINUXTOPLEVELWORKTREE/.gitignore" "$GITKEEPWORKTREETOPLEVEL/git.gitignore"
+            cp "$GITKEEPWORKTREETOPLEVEL/$CURRENTREPO.gitignore" "$LINUXTOPLEVELWORKTREE/.gitignore"
+        fi;
+
+
+        git --work-tree="$LINUXTOPLEVELWORKTREE" --git-dir="$LINUXTOPLEVELWORKTREE/.git-$CURRENTREPO" "$@"
+
+        if [[ -f "$GITKEEPWORKTREETOPLEVEL/$CURRENTREPO.gitignore" ]]; then
+            mv "$GITKEEPWORKTREETOPLEVEL/git.gitignore" "$LINUXTOPLEVELWORKTREE/.gitignore"
+        fi;
+
+    else
+        if [[ -f "$LINUXWORKTREE/$GITKEEP/$CURRENTREPO.gitignore" ]]; then
+            mv "$LINUXWORKTREE/.gitignore" "$GITKEEPWORKTREE/git.gitignore"
+            cp "$GITKEEPWORKTREE/$CURRENTREPO.gitignore" "$LINUXWORKTREE/.gitignore"
+        fi;
+
+        git --work-tree="$LINUXWORKTREE" --git-dir="$LINUXWORKTREE/.git-$CURRENTREPO" "$@"
+
+        if [[ -f "$GITKEEPWORKTREE/$CURRENTREPO.gitignore" ]]; then
+            mv "$GITKEEPWORKTREE/git.gitignore" "$LINUXWORKTREE/.gitignore"
+        fi;
+
+    fi
+
+
+
 }
+
+
 
 gitShadowCurrent() {
     if [[ -z $1 ]]; then
         # echo shadow repo list:
         firstTag="\e[32m*(current)\e[0m"
+        shadowRepoExists=false
         for repo in $SHADOWREPOLIST; do
             echo -e $i $repo$firstTag
             firstTag=""
+            shadowRepoExists=true
         done
+        if [[ $shadowRepoExists == false ]]; then
+            echo -e "Nothing found in shadow repo list."
+        fi
     else
-        getShadowRepoExists $1
-        if [[ $isFound == true ]]; then
+        setCurrentRepo $1
+        if [[ $CURRENTREPO == $1 ]]; then
             echo $1 > $CONFIGFILE
             for repo in $SHADOWREPOLIST; do
                 if [[ $1 != $repo ]]; then
@@ -159,6 +253,42 @@ gitShadowCurrent() {
     fi
 }
 
+
+gitShadowInit() {
+
+    # para => init(1) --toplevel(2) deploy-repo(3)
+
+    if [[ $# == 3 ]];  then
+
+        if [[ $2 == "--toplevel" ]]; then
+
+                # CONFIGFILE="$LINUXWORKTREE/$GITKEEP/$GITSHADOWCONFIG"
+                echo "CONFIGFILETOPLEVEL"
+                echo $CONFIGFILETOPLEVEL
+                echo $3
+                echo "under git control"
+                echo $GITUNDERCONTROL
+                if [[ $GITUNDERCONTROL != true ]]; then
+                    echo "This directory is not under git control."
+                    echo "Try remove '--toplevel' option to init git shadow repo in current directory."
+                    exit
+                fi
+                gitShadowCreate $3 $GITKEEPWORKTREETOPLEVEL
+                GITUSETOPLEVEL=true
+
+        else
+            echo "'$2' is not a vaild option, do you mean '--toplevel' ?"
+            exit
+        fi
+
+    else
+        gitShadowCreate $2 $GITKEEPWORKTREE
+        GITUSETOPLEVEL=false
+    fi
+
+    gitInvoke "init"
+}
+
 gitShadowDebug() {
     VAR=''
     echo ${VAR-"defalult"}
@@ -169,7 +299,7 @@ gitShadowDebug() {
 #######################################
 #  bootstrapper
 #######################################
-echo -e "git-shadow-repos 0.35"
+echo -e "git-shadow-repos 0.36.1"
 # echo -e $(dirname $0) ** find script path
 if [[ -z "$1" ]]; then
     if [[ "$BASH_SOURCE" = *\.* ]]; then
@@ -181,6 +311,8 @@ if [[ -z "$1" ]]; then
     fi
 else
     loadShadowEnvironment
+
+
     case $1 in
         debug )
             gitShadowDebug
@@ -191,34 +323,18 @@ else
         uninstall )
             gitShadowUninstall
             ;;
-        create* )
-            gitShadowCreate $2
-            ;;
         clone* )
-            gitShadowClone $2 $3
+            gitShadowCopy $2 $3
             ;;
         current* )
             gitShadowCurrent $2
             ;;
+
+        init* )
+            gitShadowInit $@
+            ;;
         *)
-
-            # echo $LINUXWORKTREE/$GITKEEP/$CURRENTREPO.gitignore
-            # if origin repo/.gitignore not existed create it
-            if [[ ! -f "$LINUXWORKTREE/.gitignore" ]]; then
-                echo "" > "$LINUXWORKTREE/.gitignore"
-            fi
-
-            if [[ -f "$LINUXWORKTREE/$GITKEEP/$CURRENTREPO.gitignore" ]]; then
-                mv "$LINUXWORKTREE/.gitignore" "$LINUXWORKTREE/$GITKEEP/git.gitignore"
-                cp "$LINUXWORKTREE/$GITKEEP/$CURRENTREPO.gitignore" "$LINUXWORKTREE/.gitignore"
-            fi;
-
-
-            git --work-tree="$LINUXWORKTREE" --git-dir="$LINUXWORKTREE/.git-$CURRENTREPO" $@
-
-            if [[ -f "$LINUXWORKTREE/$GITKEEP/$CURRENTREPO.gitignore" ]]; then
-                mv "$LINUXWORKTREE/$GITKEEP/git.gitignore" "$LINUXWORKTREE/.gitignore"
-            fi;
+            gitInvoke "$@"
             ;;
     esac
 

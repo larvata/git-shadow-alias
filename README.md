@@ -10,14 +10,13 @@ I use this script mantain .net website. One repo for source control, and one for
 
 `./git-shadow install`
 
-#### create alias bash script
+#### init shadow repo
 
-`git shadow create <git-repo>`
+`git shadow init <shadow-repo>`
 
 #### manage repo with git-shadow
 
 ```
-git shadow init
 git shadow add *
 git shadow status
 ...
@@ -39,7 +38,7 @@ Install: ./git-shadow install
 Git shadow commands:
 install             install this script
 uninstall           remove this script from system
-create [repo]       create shadow repo and set as default
+init [repo]       init shadow repo and set as default
 clone [repo] [url]  create shadow repo from remote
 current [repo]      set default repo
 current             list all shadow repos
